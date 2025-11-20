@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>汉字笔画 - 中文学习中心</title>
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="https://cdn.tailwindcss.com" as="script">
+    <link rel="preload" href="https://unpkg.com/hanzi-writer@3.5/dist/hanzi-writer.min.js" as="script">
+    <link rel="preload" href="https://unpkg.com/pinyin-pro" as="script">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #character-target {
@@ -146,10 +150,10 @@
             <!-- 操作按钮 -->
             <div class="grid grid-cols-2 gap-3 md:gap-4 w-full">
                 <button onclick="animateChar()"
-                    class="bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-sm btn-press text-sm md:text-base">👁️
+                    class="bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-md btn-press text-sm md:text-base transition-all hover:shadow-lg">👁️
                     看演示</button>
                 <button onclick="quizChar()"
-                    class="bg-amber-500 hover:bg-amber-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-sm btn-press text-sm md:text-base">✍️
+                    class="bg-purple-500 hover:bg-purple-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-md btn-press text-sm md:text-base transition-all hover:shadow-lg">✍️
                     练一练</button>
             </div>
         </div>
