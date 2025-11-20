@@ -88,23 +88,33 @@
         </div>
 
         <!-- 输入区域 -->
-        <div class="flex gap-2 w-full relative">
-            <input type="text" id="charInput" placeholder="输入汉字" maxlength="1"
-                class="flex-1 border-2 border-indigo-100 rounded-xl pl-4 pr-12 py-2 md:py-3 text-center text-xl font-bold outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
-                onkeypress="if(event.key==='Enter') loadChar()">
+        <div class="flex items-center gap-2 w-full">
+            <div class="relative flex-1">
+                <input type="text" id="charInput" placeholder="输入汉字" maxlength="1"
+                    class="w-full border-2 border-indigo-100 rounded-xl pl-4 pr-10 py-3 text-center text-xl font-bold outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+                    onkeypress="if(event.key==='Enter') loadChar()">
 
-            <!-- 语音识别按钮 -->
-            <button id="mic-btn" onclick="startDictation()"
-                class="absolute right-[90px] md:right-[100px] top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
-                    </path>
-                </svg>
-            </button>
+                <!-- 语音按钮 (放在输入框内右侧) -->
+                <button id="mic-btn" onclick="toggleDictation()"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 p-2 rounded-full transition-colors">
+                    <svg id="mic-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                        </path>
+                    </svg>
+                    <!-- 停止图标 (默认隐藏) -->
+                    <svg id="stop-icon" class="w-6 h-6 hidden text-red-500 animate-pulse" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                    </svg>
+                </button>
+            </div>
 
             <button onclick="loadChar()"
-                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 md:px-6 py-2 md:py-3 rounded-xl font-bold shadow-md btn-press transition-colors whitespace-nowrap z-10">
+                class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold shadow-md btn-press transition-colors whitespace-nowrap">
                 确定
             </button>
         </div>
@@ -165,31 +175,77 @@
         if (window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = loadVoices;
         loadVoices();
 
-        // 语音识别
-        function startDictation() {
+        let recognition = null;
+        let isListening = false;
+
+        // 初始化语音识别
+        function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return alert("抱歉，您的浏览器不支持语音输入。");
+            if (!SpeechRecognition) return null;
 
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'zh-CN';
-            recognition.maxAlternatives = 1;
+            const rec = new SpeechRecognition();
+            rec.lang = 'zh-CN';
+            rec.continuous = false;
+            rec.interimResults = false;
 
-            const micBtn = document.getElementById('mic-btn');
-            const status = document.getElementById('voice-status');
+            rec.onstart = () => {
+                isListening = true;
+                updateMicUI(true);
+            };
 
-            recognition.onstart = () => { micBtn.classList.add('text-red-500', 'listening-ring'); status.classList.remove('hidden'); };
-            recognition.onend = () => { micBtn.classList.remove('text-red-500', 'listening-ring'); status.classList.add('hidden'); };
-            recognition.onresult = (event) => {
+            rec.onend = () => {
+                isListening = false;
+                updateMicUI(false);
+            };
+
+            rec.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
+                // 提取第一个汉字
                 const match = transcript.match(/[\u4e00-\u9fa5]/);
                 if (match) {
                     document.getElementById('charInput').value = match[0];
-                    loadChar();
+                    loadChar(); // 自动加载
                 } else {
                     alert("没听清，请再说一遍~");
                 }
             };
-            recognition.start();
+
+            rec.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                isListening = false;
+                updateMicUI(false);
+            };
+
+            return rec;
+        }
+
+        function toggleDictation() {
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+                if (!recognition) return alert("抱歉，您的浏览器不支持语音输入。");
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function updateMicUI(listening) {
+            const micIcon = document.getElementById('mic-icon');
+            const stopIcon = document.getElementById('stop-icon');
+            const status = document.getElementById('voice-status');
+
+            if (listening) {
+                micIcon.classList.add('hidden');
+                stopIcon.classList.remove('hidden');
+                status.classList.remove('hidden');
+            } else {
+                micIcon.classList.remove('hidden');
+                stopIcon.classList.add('hidden');
+                status.classList.add('hidden');
+            }
         }
 
         function loadChar() {
@@ -272,6 +328,13 @@
         window.addEventListener('resize', () => {
             if (currentHanzi) setTimeout(() => initWriter(currentHanzi), 200);
         });
+
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js');
+            });
+        }
     </script>
 </body>
 

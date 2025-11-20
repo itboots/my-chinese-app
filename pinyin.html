@@ -98,14 +98,30 @@
     </div>
 
     <script src="https://unpkg.com/pinyin-pro"></script>
+    <script src="https://unpkg.com/pinyin-pro"></script>
     <script>
         let chineseVoice = null;
+
+        // 优化语音加载逻辑
         function loadVoices() {
             const voices = window.speechSynthesis.getVoices();
-            chineseVoice = voices.find(v => v.lang === 'zh-CN') || voices.find(v => v.lang.includes('zh'));
+            // 优先找大陆普通话，其次找其他中文
+            chineseVoice = voices.find(v => v.lang === 'zh-CN') ||
+                voices.find(v => v.lang === 'zh-HK') ||
+                voices.find(v => v.lang === 'zh-TW') ||
+                voices.find(v => v.lang.includes('zh'));
+
+            if (chineseVoice) console.log("Voice loaded:", chineseVoice.name);
         }
-        if (window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = loadVoices;
+
+        // 兼容不同浏览器的语音加载事件
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        // 尝试立即加载
         loadVoices();
+        // 再次尝试（某些浏览器有延迟）
+        setTimeout(loadVoices, 1000);
 
         function convertPinyin() {
             const text = document.getElementById('pinyinInput').value.trim();
@@ -116,6 +132,8 @@
                 document.getElementById('pinyin-output').innerText = pinyinText;
                 document.getElementById('pinyin-empty-state').classList.add('hidden');
                 document.getElementById('pinyin-result-area').classList.remove('hidden');
+
+                // 自动朗读 (可能被移动端拦截，所以保留手动按钮)
                 speakPinyinText();
             } catch (e) { alert("拼音转换失败"); }
             document.getElementById('pinyinInput').blur();
@@ -123,12 +141,27 @@
 
         function speakPinyinText() {
             const text = document.getElementById('pinyinInput').value.trim();
-            if (!text) return;
+            if (!text) return alert("请输入要朗读的文字");
+
+            // 再次尝试加载语音，防止之前没加载到
+            if (!chineseVoice) loadVoices();
+
             window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'zh-CN'; u.rate = 1.0;
+            u.lang = 'zh-CN';
+            u.rate = 1.0;
             if (chineseVoice) u.voice = chineseVoice;
+
+            u.onerror = (e) => console.error("Speech error:", e);
+
             window.speechSynthesis.speak(u);
+        }
+
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js');
+            });
         }
     </script>
 </body>
