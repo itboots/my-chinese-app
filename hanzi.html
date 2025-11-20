@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>汉字笔画 - 中文学习中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #character-target {
+            touch-action: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn-press:active {
+            transform: scale(0.98);
+        }
+
+        .btn-press {
+            transition: transform 0.1s ease-out;
+        }
+
+        .safe-area-padding {
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: constant(safe-area-inset-bottom);
+        }
+
+        /* 语音波纹 */
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1.3);
+                opacity: 0;
+            }
+        }
+
+        .listening-ring::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            border: 2px solid #ef4444;
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen font-sans text-gray-800 safe-area-padding flex flex-col items-center p-2 md:p-4 overflow-y-auto">
+
+    <!-- 返回按钮 -->
+    <a href="index.html"
+        class="self-start mb-2 md:mb-6 ml-2 mt-2 group flex items-center bg-white/80 hover:bg-white text-indigo-600 px-4 py-2 rounded-full shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm font-medium text-sm">
+        <svg class="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        返回首页
+    </a>
+
+    <div
+        class="bg-white rounded-3xl shadow-xl p-4 md:p-6 w-full max-w-md flex flex-col items-center space-y-4 md:space-y-6 border border-gray-100 fade-in">
+        <div class="text-center w-full">
+            <h1 class="text-xl md:text-2xl font-bold text-indigo-700">汉字笔画学习</h1>
+            <p class="text-gray-400 text-xs mt-1">智能缓存版 · 支持语音输入</p>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="flex gap-2 w-full relative">
+            <input type="text" id="charInput" placeholder="输入汉字" maxlength="1"
+                class="flex-1 border-2 border-indigo-100 rounded-xl pl-4 pr-12 py-2 md:py-3 text-center text-xl font-bold outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+                onkeypress="if(event.key==='Enter') loadChar()">
+
+            <!-- 语音识别按钮 -->
+            <button id="mic-btn" onclick="startDictation()"
+                class="absolute right-[90px] md:right-[100px] top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                    </path>
+                </svg>
+            </button>
+
+            <button onclick="loadChar()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 md:px-6 py-2 md:py-3 rounded-xl font-bold shadow-md btn-press transition-colors whitespace-nowrap z-10">
+                确定
+            </button>
+        </div>
+        <!-- 语音状态提示 -->
+        <div id="voice-status" class="hidden text-xs text-red-500 animate-pulse">正在聆听... 请说一个汉字</div>
+
+        <!-- 展示区域 -->
+        <div id="hanzi-display-area" class="hidden flex flex-col items-center w-full space-y-3 md:space-y-5">
+            <!-- 拼音 -->
+            <div class="flex items-center justify-center space-x-3">
+                <div id="hanzi-pinyin" class="text-4xl md:text-5xl font-extrabold text-indigo-600 font-serif"></div>
+                <button onclick="speakHanzi()"
+                    class="bg-indigo-50 text-indigo-600 p-2 rounded-full hover:bg-indigo-100">🔊</button>
+            </div>
+
+            <!-- 田字格 -->
+            <div
+                class="relative w-full max-w-[260px] md:max-w-[300px] aspect-square bg-white rounded-xl shadow-inner border-4 border-indigo-50 overflow-hidden">
+                <div id="character-target" class="w-full h-full cursor-pointer"></div>
+                <div id="loading-hint"
+                    class="absolute inset-0 flex items-center justify-center text-gray-400 bg-white/80 hidden pointer-events-none">
+                    <span class="animate-pulse">加载中...</span>
+                </div>
+                <div id="cache-badge"
+                    class="absolute top-2 right-2 bg-green-100 text-green-600 text-[10px] px-2 py-0.5 rounded-full hidden">
+                    秒开</div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="grid grid-cols-2 gap-3 md:gap-4 w-full">
+                <button onclick="animateChar()"
+                    class="bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-sm btn-press text-sm md:text-base">👁️
+                    看演示</button>
+                <button onclick="quizChar()"
+                    class="bg-amber-500 hover:bg-amber-600 text-white py-2.5 md:py-3 rounded-xl font-bold shadow-sm btn-press text-sm md:text-base">✍️
+                    练一练</button>
+            </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div id="hanzi-empty-state" class="py-8 text-gray-400 text-center text-sm">
+            👆 输入或<span class="text-red-400">语音说出</span>汉字
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <script src="https://unpkg.com/pinyin-pro"></script>
+    <script>
+        let writer = null;
+        let currentHanzi = '';
+        let chineseVoice = null;
+
+        // 语音加载
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            chineseVoice = voices.find(v => v.lang === 'zh-CN') || voices.find(v => v.lang.includes('zh'));
+        }
+        if (window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+
+        // 语音识别
+        function startDictation() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return alert("抱歉，您的浏览器不支持语音输入。");
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'zh-CN';
+            recognition.maxAlternatives = 1;
+
+            const micBtn = document.getElementById('mic-btn');
+            const status = document.getElementById('voice-status');
+
+            recognition.onstart = () => { micBtn.classList.add('text-red-500', 'listening-ring'); status.classList.remove('hidden'); };
+            recognition.onend = () => { micBtn.classList.remove('text-red-500', 'listening-ring'); status.classList.add('hidden'); };
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const match = transcript.match(/[\u4e00-\u9fa5]/);
+                if (match) {
+                    document.getElementById('charInput').value = match[0];
+                    loadChar();
+                } else {
+                    alert("没听清，请再说一遍~");
+                }
+            };
+            recognition.start();
+        }
+
+        function loadChar() {
+            const char = document.getElementById('charInput').value.trim();
+            if (!char || !/[\u4e00-\u9fa5]/.test(char)) return alert('请输入一个汉字！');
+
+            document.getElementById('hanzi-empty-state').classList.add('hidden');
+            document.getElementById('hanzi-display-area').classList.remove('hidden');
+            currentHanzi = char;
+
+            try {
+                const { pinyin } = window.pinyinPro;
+                document.getElementById('hanzi-pinyin').innerText = pinyin(char);
+            } catch (e) { }
+
+            speakHanzi();
+            setTimeout(() => initWriter(char), 50);
+            document.getElementById('charInput').blur();
+        }
+
+        function initWriter(char) {
+            const container = document.getElementById('character-target');
+            container.innerHTML = '';
+            document.getElementById('loading-hint').classList.remove('hidden');
+            document.getElementById('cache-badge').classList.add('hidden');
+            const width = container.clientWidth;
+
+            try {
+                writer = HanziWriter.create('character-target', char, {
+                    width: width, height: width, padding: 5,
+                    showOutline: true, strokeAnimationSpeed: 1, delayBetweenStrokes: 200,
+                    radicalColor: '#4f46e5', strokeColor: '#333', outlineColor: '#cbd5e1',
+                    charDataLoader: function (char, onComplete, onError) {
+                        // 1. 检查缓存
+                        const cacheKey = 'hanzi_data_' + char;
+                        const cached = localStorage.getItem(cacheKey);
+                        if (cached) {
+                            document.getElementById('cache-badge').classList.remove('hidden');
+                            return onComplete(JSON.parse(cached));
+                        }
+
+                        // 2. 优先使用 jsdelivr (更稳定)，失败后回退到 unpkg
+                        fetch('https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/' + char + '.json')
+                            .then(res => {
+                                if (!res.ok) throw new Error('Network response was not ok');
+                                return res.json();
+                            })
+                            .then(data => {
+                                try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) { }
+                                onComplete(data);
+                            })
+                            .catch(() => {
+                                // Fallback to unpkg
+                                fetch('https://unpkg.com/hanzi-writer-data@2.0/' + char + '.json')
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) { }
+                                        onComplete(data);
+                                    })
+                                    .catch(onError);
+                            });
+                    },
+                    onLoadCharDataSuccess: () => document.getElementById('loading-hint').classList.add('hidden'),
+                    onLoadCharDataError: () => { document.querySelector('#loading-hint span').innerText = "加载失败"; }
+                });
+                writer.animateCharacter();
+            } catch (err) { console.error(err); }
+        }
+
+        function animateChar() { if (writer) writer.animateCharacter(); }
+        function quizChar() { if (writer) writer.quiz({ onComplete: () => { speakHanzi(); setTimeout(() => writer.animateCharacter(), 1000); } }); }
+        function speakHanzi() {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(currentHanzi);
+            u.lang = 'zh-CN'; u.rate = 0.9;
+            if (chineseVoice) u.voice = chineseVoice;
+            window.speechSynthesis.speak(u);
+        }
+
+        window.addEventListener('resize', () => {
+            if (currentHanzi) setTimeout(() => initWriter(currentHanzi), 200);
+        });
+    </script>
+</body>
+
+</html>

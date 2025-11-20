@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>拼音朗读 - 中文学习中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn-press:active {
+            transform: scale(0.98);
+        }
+
+        .btn-press {
+            transition: transform 0.1s ease-out;
+        }
+
+        .safe-area-padding {
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: constant(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gradient-to-br from-emerald-50 to-teal-100 min-h-screen font-sans text-gray-800 safe-area-padding flex flex-col items-center p-4">
+
+    <!-- 返回按钮 -->
+    <a href="index.html"
+        class="self-start mb-6 group flex items-center bg-white/80 hover:bg-white text-emerald-600 px-4 py-2 rounded-full shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm font-medium text-sm">
+        <svg class="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        返回首页
+    </a>
+
+    <div
+        class="bg-white rounded-3xl shadow-xl p-6 w-full max-w-md flex flex-col items-center space-y-6 border border-gray-100 fade-in">
+        <div class="text-center w-full">
+            <h1 class="text-2xl font-bold text-emerald-700">拼音朗读助手</h1>
+            <p class="text-gray-500 text-xs mt-1">长句注音 · 语音合成</p>
+        </div>
+
+        <!-- 文本输入区域 -->
+        <div class="w-full relative">
+            <textarea id="pinyinInput" rows="3" placeholder="请输入一句话或一段文字..."
+                class="w-full border-2 border-emerald-100 rounded-xl px-4 py-3 text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all bg-emerald-50/30"></textarea>
+            <button onclick="convertPinyin()"
+                class="absolute bottom-3 right-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm btn-press transition-colors">
+                转换
+            </button>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div id="pinyin-result-area" class="w-full hidden fade-in">
+            <!-- 拼音展示 -->
+            <div class="bg-emerald-50 rounded-xl p-4 mb-4 border border-emerald-100">
+                <p class="text-gray-400 text-xs mb-1">拼音标注</p>
+                <div id="pinyin-output"
+                    class="text-2xl leading-relaxed font-medium text-slate-700 font-serif break-words text-center">
+                </div>
+            </div>
+
+            <!-- 朗读控制 -->
+            <button onclick="speakPinyinText()"
+                class="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 rounded-xl font-bold shadow-md btn-press flex items-center justify-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.647 11.586 3 12 3v18c-.414 0-1.077-.647-1.707-1.293L5.586 15z">
+                    </path>
+                </svg>
+                <span>朗读整句</span>
+            </button>
+        </div>
+
+        <!-- 拼音提示图 -->
+        <div id="pinyin-empty-state" class="py-6 text-center opacity-50">
+            <div class="text-6xl mb-2">ā á ǎ à</div>
+            <p class="text-sm text-gray-400">输入汉字，自动标注声调</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/pinyin-pro"></script>
+    <script>
+        let chineseVoice = null;
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            chineseVoice = voices.find(v => v.lang === 'zh-CN') || voices.find(v => v.lang.includes('zh'));
+        }
+        if (window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+
+        function convertPinyin() {
+            const text = document.getElementById('pinyinInput').value.trim();
+            if (!text) return;
+            try {
+                const { pinyin } = window.pinyinPro;
+                const pinyinText = pinyin(text, { type: 'string', toneType: 'symbol' });
+                document.getElementById('pinyin-output').innerText = pinyinText;
+                document.getElementById('pinyin-empty-state').classList.add('hidden');
+                document.getElementById('pinyin-result-area').classList.remove('hidden');
+                speakPinyinText();
+            } catch (e) { alert("拼音转换失败"); }
+            document.getElementById('pinyinInput').blur();
+        }
+
+        function speakPinyinText() {
+            const text = document.getElementById('pinyinInput').value.trim();
+            if (!text) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'zh-CN'; u.rate = 1.0;
+            if (chineseVoice) u.voice = chineseVoice;
+            window.speechSynthesis.speak(u);
+        }
+    </script>
+</body>
+
+</html>
